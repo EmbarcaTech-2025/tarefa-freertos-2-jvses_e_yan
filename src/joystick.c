@@ -79,7 +79,7 @@ void joystick_read_axis(uint16_t *vrx_value, uint16_t *vry_value){//volatile uin
 
   dma_channel_start(dma_chan);
 
-  while (dma_channel_is_busy(dma_chan)){}
+  while (dma_channel_is_busy(dma_chan)){}//trava aqui enquanto o dma estiver ocupado
 
   adc_run(false);
 

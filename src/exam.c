@@ -120,15 +120,15 @@ void setup_buttons(){
 	gpio_init(BUTTON_A);
 	gpio_set_dir(BUTTON_A, GPIO_IN);
 	gpio_pull_up(BUTTON_A); // Habilita o resistor pull-up interno para evitar leituras incorretas.
-	gpio_set_irq_enabled(BUTTON_A, GPIO_IRQ_EDGE_RISE, true);
+	// gpio_set_irq_enabled(BUTTON_A, GPIO_IRQ_EDGE_RISE, true);
 	gpio_init(BUTTON_B);
 	gpio_set_dir(BUTTON_B, GPIO_IN);
 	gpio_pull_up(BUTTON_B); // Habilita o resistor pull-up interno para evitar leituras incorretas.
-	gpio_set_irq_enabled(BUTTON_B, GPIO_IRQ_EDGE_RISE, true);
+	// gpio_set_irq_enabled(BUTTON_B, GPIO_IRQ_EDGE_RISE, true);
 
 	// Configura o handler global de interrupções
-	gpio_set_irq_callback(gpio_irq_handler);
-	irq_set_enabled(IO_IRQ_BANK0, true);
+	// gpio_set_irq_callback(gpio_irq_handler);
+	// irq_set_enabled(IO_IRQ_BANK0, true);
 }
 
 void update_level(){
