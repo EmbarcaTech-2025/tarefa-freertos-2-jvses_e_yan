@@ -4,12 +4,12 @@
 #include "include/neopin.h"
 #include "include/oled_ctrl.h"
 #include "include/exam.h"
-extern uint8_t ssd[];
 
 TaskHandle_t Buttons = NULL;
 TaskHandle_t Oled = NULL;
 TaskHandle_t LedMatrix = NULL;
 TaskHandle_t Joystick = NULL;
+TaskHandle_t Debug = NULL;
 
 QueueHandle_t xQueue_led_matrix;
 QueueHandle_t xQueue_oled;
@@ -21,34 +21,18 @@ typedef struct {
 } PioData_t;
 
 typedef struct{
-	char str[16];
+	int8_t nivel;
 	uint8_t adrx;
-	uint8_t adry;
+	uint8_t start_addry;
+	int8_t contador_turnos;
+	float tempo_turnos[5];
 } OledData_t;
 
-//preparo de tasks
+void task_proc_game(){}
 
-//task para PIO
-// task para OLED 
-// task para botões
-// task para joystick
-
-// task de processamento e adiministração. Ela vai receber as informações das outras e enviar 
-// o que deve ser printado no OLED e no PIO (mantém a task de botões só com botões)
-
-
-
-void task_proc_game(){//trabalha quando o exame começa e adminitra os periféricos
-
-}
-
-void task_joystick(void *params){//quando ativada ela envia a direção que o joystick está apontando e o tempo passado
+void task_joystick(void *params){
 	setup_joystick();
-	
-	while (1){
-		/* code */
-	}
-	
+	while (1){ }
 }
 
 void task_ledMatrix(void *params){
@@ -56,7 +40,7 @@ void task_ledMatrix(void *params){
 	PioData_t pio_data;
 
 	while (1){
-		if (xQueueReceive(xQueue_led_matrix, &pio_data, portMAX_DELAY) == pdTRUE) {
+		if (xQueueReceive(xQueue_led_matrix, &pio_data, pdMS_TO_TICKS(10)) == pdTRUE) {
 			npClear();
 			if (pio_data.b_hg) {
 				npDrawAmpulheta(0, 0, HIG_BRIGHT);
@@ -66,6 +50,7 @@ void task_ledMatrix(void *params){
 				npDrawArrow(pio_data.direcao);
 			}
 		}
+		vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
 
@@ -74,49 +59,61 @@ void task_oled(void *params){
 	OledData_t oled_data;
 
 	while (true){
-		if (xQueueReceive(xQueue_oled, &oled_data, portMAX_DELAY) == pdTRUE) {
+		if (xQueueReceive(xQueue_oled, &oled_data, pdMS_TO_TICKS(10)) == pdTRUE) {
 			oled_clear();
-			ssd1306_draw_string(ssd, oled_data.adrx, oled_data.adry, oled_data.str);
+			oled_times_print(oled_data.nivel, oled_data.contador_turnos, oled_data.tempo_turnos, oled_data.start_addry);
 			oled_render();
 		}
+		vTaskDelay(pdMS_TO_TICKS(1));
+	}
+}
+
+void task_debug(void *params) {
+	while (1) {
+		PioData_t test_led = {.direcao = 2, .b_hg = false, .y_hg = false};
+		xQueueSend(xQueue_led_matrix, &test_led, 0);
+		vTaskDelay(pdMS_TO_TICKS(1000));
+
+		test_led.b_hg = true;
+		test_led.y_hg = false;
+		xQueueSend(xQueue_led_matrix, &test_led, 0);
+		vTaskDelay(pdMS_TO_TICKS(1000));
+
+		OledData_t test_oled = {
+			.nivel = 1,
+			.adrx = 5,
+			.start_addry = 8,
+			.contador_turnos = 2,
+			.tempo_turnos = {1.234f, 2.345f}
+		};
+		xQueueSend(xQueue_oled, &test_oled, 0);
+		vTaskDelay(pdMS_TO_TICKS(2000));
 	}
 }
 
 void task_buttons(void *params){
-	//botões iniciados em PULL-UP
-	setup_buttons();//readaptados para não ter mais interrupções
-
-	bool lockA={false},lockB={false}; //var auxiliar para softlock
+	setup_buttons();
+	bool lockA = false, lockB = false;
 
 	while (true){
-		bool btA=!gpio_get(BUTTON_A);
-		bool btB=!gpio_get(BUTTON_B);
+		bool btA = !gpio_get(BUTTON_A);
+		bool btB = !gpio_get(BUTTON_B);
 
-		if(!lockA && btA){//se a trava não estiver ativa e A for apertado então faz os eventos
-			lockA=true;
-			
-			/*começa task do exame aqui*/
-
-			vTaskDelay(pdMS_TO_TICKS(200));//debounce de 200ms para o botão
+		if (!lockA && btA){
+			lockA = true;
+			vTaskDelay(pdMS_TO_TICKS(200));
 		} else{
-			lockA=false;
+			lockA = false;
 		}
-
-
-		if(!lockB && btB){//se a trava não estiver ativa e A for apertado então faz os eventos
-			lockB=true;
-			
-			/*altera nível do exame aqui (Provavelmente de pausar a execução do exame. caso esteja acontecendo)*/
-
-			vTaskDelay(pdMS_TO_TICKS(200));//debounce de 200ms para o botão
+		if (!lockB && btB){
+			lockB = true;
+			vTaskDelay(pdMS_TO_TICKS(200));
 		} else{
-			lockB=false;
+			lockB = false;
 		}
 		vTaskDelay(pdMS_TO_TICKS(10));
 	}
-	
 }
-
 
 int main(){
 	stdio_init_all();
@@ -126,16 +123,8 @@ int main(){
 
 	xTaskCreate(task_ledMatrix, "LedMatrix", 1024, NULL, 1, &LedMatrix);
 	xTaskCreate(task_oled, "Oled", 1024, NULL, 1, &Oled);
+	xTaskCreate(task_debug, "Debug", 1024, NULL, 1, &Debug);
 
 	vTaskStartScheduler();
-	// exam_setup();
-
-	// sleep_ms(2000);
-
-	// struct repeating_timer timer;
-	// add_repeating_timer_ms(10, repeating_reader, NULL, &timer);
-
-	while (true){
-		// exam_handler();
-	}
+	while (true) {}
 }
