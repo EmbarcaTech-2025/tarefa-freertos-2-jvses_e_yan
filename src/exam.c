@@ -80,7 +80,7 @@ void oled_print_info(){
 			oled_print_media(soma);
 			oled_render();
 
-			sign_change = true;;
+			sign_change = true;
 			npDrawAmpulheta(LOW_BRIGHT, LOW_BRIGHT, 0);
 
 			sleep_ms(100);
