@@ -1,14 +1,30 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
-
+#include "include/neopin.h"
+#include "include/oled_ctrl.h"
 #include "include/exam.h"
+extern uint8_t ssd[];
 
 TaskHandle_t Buttons = NULL;
 TaskHandle_t Oled = NULL;
 TaskHandle_t LedMatrix = NULL;
 TaskHandle_t Joystick = NULL;
 
+QueueHandle_t xQueue_led_matrix;
+QueueHandle_t xQueue_oled;
+
+typedef struct {
+	uint8_t direcao;
+	bool b_hg;
+	bool y_hg;
+} PioData_t;
+
+typedef struct{
+	char str[16];
+	uint8_t adrx;
+	uint8_t adry;
+} OledData_t;
 
 //preparo de tasks
 
@@ -35,23 +51,35 @@ void task_joystick(void *params){//quando ativada ela envia a direção que o jo
 	
 }
 
-void task_ledMatrix(void *params){//atualiza a matriz de Leds
+void task_ledMatrix(void *params){
 	npInit(LED_NEOPIN);
+	PioData_t pio_data;
 
-	while (1){//espera mudanças para desenhar na matriz de led
-		/* code */
+	while (1){
+		if (xQueueReceive(xQueue_led_matrix, &pio_data, portMAX_DELAY) == pdTRUE) {
+			npClear();
+			if (pio_data.b_hg) {
+				npDrawAmpulheta(0, 0, HIG_BRIGHT);
+			} else if (pio_data.y_hg) {
+				npDrawAmpulheta(HIG_BRIGHT, HIG_BRIGHT, 0);
+			} else {
+				npDrawArrow(pio_data.direcao);
+			}
+		}
 	}
-	
 }
 
-void task_oled(void *params){// é provocado pelos botões e pelo Joystick para atualizar a tela
+void task_oled(void *params){
 	setup_OLED();
+	OledData_t oled_data;
 
-	while (true){//deve ficar em standby esperando informações novas para serem escritas
-		/* code */
+	while (true){
+		if (xQueueReceive(xQueue_oled, &oled_data, portMAX_DELAY) == pdTRUE) {
+			oled_clear();
+			ssd1306_draw_string(ssd, oled_data.adrx, oled_data.adry, oled_data.str);
+			oled_render();
+		}
 	}
-	
-
 }
 
 void task_buttons(void *params){
@@ -92,6 +120,14 @@ void task_buttons(void *params){
 
 int main(){
 	stdio_init_all();
+
+	xQueue_led_matrix = xQueueCreate(5, sizeof(PioData_t));
+	xQueue_oled = xQueueCreate(5, sizeof(OledData_t));
+
+	xTaskCreate(task_ledMatrix, "LedMatrix", 1024, NULL, 1, &LedMatrix);
+	xTaskCreate(task_oled, "Oled", 1024, NULL, 1, &Oled);
+
+	vTaskStartScheduler();
 	// exam_setup();
 
 	// sleep_ms(2000);
