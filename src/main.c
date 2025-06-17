@@ -15,8 +15,11 @@ SemaphoreHandle_t SemJoyCount = NULL;//Semáforo para adiministrar jopystick
 
 
 static QueueHandle_t xQueue_btn_proc = NULL; //ponte de comunicação task botões-proc
-static QueueHandle_t xQueue_pio = NULL;
+// static QueueHandle_t xQueue_pio = NULL;
 static QueueHandle_t xQueue_joystick = NULL;
+
+static QueueHandle_t xQueue_led_matrix = NULL;
+static QueueHandle_t xQueue_oled = NULL;
 
 //preparo de tasks
 
@@ -57,17 +60,17 @@ uint32_t get_current_ms() {
 void task_proc_game(void *params){//trabalha quando o exame começa e adminitra os periféricos
 
 	printf("O exame foi iniciado\n");
-	bool recValueA,recValueB;//flags do exame
+	bool recValueA,recValueB;//flags do exame valueA equivale a exam_started
 	uint8_t flagRecebida;//recebimento dos botões
 
 	uint8_t sign_placa = rand_sign();//já começa com um valor aleatório
 
-	bool sign_change = false;
+	bool sign_change = false;//variável que indica se tem mudança na palca exibida
 	uint8_t dir_atual = {8};//direção percebida. Inicia em 8
 
 
 
-	uint8_t nivel={1};//nível padrão do jogo iniciado em 1
+	int8_t nivel={1};//nível padrão do jogo iniciado em 1
 	uint16_t tempo_de_espera = {2000};//tempo padrão para mudança da placa iniciado em 2s
 	int8_t contador_turnos = {0};
 
@@ -93,69 +96,59 @@ void task_proc_game(void *params){//trabalha quando o exame começa e adminitra 
 			printf("btnA: %d , btnB: %d\n",recValueA,recValueB);
 		}
 
-		if(recValueA){//inicia exame
+		if(recValueA){//Se o exame foi iniciado
 
 			/*Checa se as tasks necessárias estão ativas ou não*/
 			// if (eTaskGetState(THJoystick) == eSuspended){
 			// 	vTaskResume(THJoystick);
 			// }
 
-			// xQueueSend(xQueue_pio,&sendPIO,0U);//envia informações do PIO
+			// xQueueSend(xQueue_pio,&sendPIO,0U);//envia informações para o PIO desenhar o que precisa
 			
 
+			if(!sign_change){
+				/*mexe no PIO para colocar novo valor*/
+
+				/*trata a leitura do joystick*/ //vai ler o joystick enquanto a placa exibida não mudar
+				////////////////////////
+				if(time_count_start == 0){//se o tempo atual antes de checar o joystick
+					time_count_start = get_current_ms();
+				}
+
+				xSemaphoreGive(SemJoyCount);//permitiu a execução da task do Joystick
+
+				if(xQueueReceive(xQueue_joystick,&recJoystick,pdMS_TO_TICKS(10)) == pdTRUE ){//fica a espera da atualização do Joystick
+					printf("RECEBIDO: VRX:%d |VRY:%d , time:%d\n",recJoystick.vrx,recJoystick.vry,recJoystick.elapsed_ms);
+					dir_atual = joy_arrow(recJoystick.vrx,recJoystick.vry);//atualiza a direção do joystick nessa task
+				}
+				if(dir_atual == sendPIO.direcao && !sign_change){//se está na mesma direção que a MatrizLeds e não houve mudança prévia de direção então acertou
+					tempo_turnos[contador_turnos] = (float)( (time_count_start - recJoystick.elapsed_ms)/1000 );//coloca tempo do turno no array
+					contador_turnos++;//vai para próximo turno
+					time_count_start = 0; //reseta contador de tempo por turno
+					sendPIO.direcao=rand_sign();//sorteia novo valor para a direção
+					sign_change=true;
+					printf("Atingiu a mesma direção da Placa\n");
+					printf("Tempo do turno: %.3f\n")
+				}
+				////////////////////////
+			} else{//se houve mudança de sinal
+
+
+
+
 			
-			
-			
-			
-			if(time_count_start == 0){//se for a primeira interação ele pega o tempo atual
-				time_count_start = get_current_ms();
-			}
-
-			xSemaphoreGive(SemJoyCount);//permitiu a execução da task do Joystick
-
-			if(xQueueReceive(xQueue_joystick,&recJoystick,pdMS_TO_TICKS(10)) == pdTRUE ){//fica a espera da atualização do Joystick
-				printf("RECEBIDO: VRX:%d |VRY:%d , time:%d\n",recJoystick.vrx,recJoystick.vry,recJoystick.elapsed_ms);
-				dir_atual = joy_arrow(recJoystick.vrx,recJoystick.vry);//atualiza a direção do joystick nessa task
-			}
-			if(dir_atual == sendPIO.direcao){//se está na mesma direção que a MatrizLeds então acertou
-				tempo_turnos[contador_turnos] = (float)( (time_count_start - recJoystick.elapsed_ms)/1000 );//coloca tempo do turno no array
-				contador_turnos++;//vai para próximo turno
-				time_count_start = 0; //reseta contador de tempo por turno
-				sendPIO.direcao=rand_sign();//sorteia novo valor para a direção
-			}
-
-			// vTaskDelay(pdMS_TO_TICKS(100));//espera para visualização no serial
+			}// vTaskDelay(pdMS_TO_TICKS(100));//espera para visualização no serial
 
 
 			
 
-		} else{//se o exame não estiver acontecendo
+		} else{//se o exame não estiver acontecendo então vamos resetar algumas variáveis
 
 		}
 
 		if(recValueB){//altera on nível do jogo
-			switch (nivel){
-				case 1:
-					nivel = 2;
-					tempo_de_espera = 1200; // agora é nível 2
-					break;
-				case 2:
-					nivel = 3;
-					tempo_de_espera = 800;
-					break;
-				case 3:
-					nivel = 4;
-					tempo_de_espera = 400;
-					break;
-				case 4:
-					nivel = 1;
-					tempo_de_espera = 2000;
-					break;
-				default:
-					nivel = 1;
-					tempo_de_espera = 2000;
-					break;
-			}
+			update_level_rtos(&nivel,&tempo_de_espera);
+
 			/*Enviar novo nível para OLED*/
 			printf("Alterado o nível:%d e tempo:%dms \n",nivel,tempo_de_espera);
 			recValueB=false;
@@ -195,21 +188,33 @@ void task_joystick(void *params){//quando ativada ela envia a direção que o jo
 
 void task_ledMatrix(void *params){//atualiza a matriz de Leds
 	npInit(LED_NEOPIN);
+	PioData_t pio_data;
 
-	while (1){//espera mudanças para desenhar na matriz de led
-		/* code */
+	while (1){
+		if (xQueueReceive(xQueue_led_matrix, &pio_data, pdMS_TO_TICKS(1)) == pdTRUE) {
+			// npClear();
+			if (pio_data.b_hg) {
+				npDrawAmpulheta(0, 0, HIG_BRIGHT);
+			} else if (pio_data.y_hg) {
+				npDrawAmpulheta(HIG_BRIGHT, HIG_BRIGHT, 0);
+			} else {
+				npDrawArrow(pio_data.direcao);
+			}
+		}
 	}
-	
 }
 
 void task_oled(void *params){// é provocado pelos botões e pelo Joystick para atualizar a tela
 	setup_OLED();
+	OledData_t oled_data;
 
-	while (true){//deve ficar em standby esperando informações novas para serem escritas
-		/* code */
+	while (true){
+		if (xQueueReceive(xQueue_oled, &oled_data, portMAX_DELAY) == pdTRUE) {
+			oled_clear();
+			ssd1306_draw_string(ssd, oled_data.adrx, oled_data.adry, oled_data.str);
+			oled_render();
+		}
 	}
-	
-
 }
 
 void task_buttons(void *params){
@@ -269,7 +274,7 @@ int main(){
 
 	xTaskCreate(task_buttons,"T_botões",128,NULL,3,&THButtons);
 	xTaskCreate(task_proc_game,"Task_Exame",256,NULL,2,&THGameProc);
-	xTaskCreate(task_joystick,"Task_Joystick",128,NULL,1,&THJoystick);
+	xTaskCreate(task_joystick,"Task_Joystick",256,NULL,1,&THJoystick);
 
 	// vTaskSuspend(THJoystick);//suspende Task que não são necessárias ainda
 

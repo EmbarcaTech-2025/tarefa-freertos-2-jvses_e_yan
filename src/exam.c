@@ -192,3 +192,28 @@ void exam_handler(){
         oled_print_info();
     }
 }
+
+void update_level_rtos(int8_t *ni, uint16_t *tempo){
+	switch (*ni){
+		case 1:
+			*ni = 2;
+			*tempo = 1200; // agora é nível 2
+			break;
+		case 2:
+			*ni = 3;
+			*tempo = 800;
+			break;
+		case 3:
+			*ni = 4;
+			*tempo = 400;
+			break;
+		case 4:
+			*ni = 1;
+			*tempo = 2000;
+			break;
+		default:
+			*ni = 1;
+			*tempo = 2000;
+			break;
+	}
+}
