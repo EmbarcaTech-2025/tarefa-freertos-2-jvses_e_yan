@@ -69,3 +69,9 @@ void oled_print_media(float soma){
     ssd1306_draw_string(ssd,5,48,buffer);
     // render_on_display(ssd, &frame_area);
 }
+
+void oled_print_text_xy(const char *str, uint8_t x, uint8_t y) {
+	oled_clear();
+	ssd1306_draw_string(ssd, x, y, (char *)str);
+	oled_render();
+}

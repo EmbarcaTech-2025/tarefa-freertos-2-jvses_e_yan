@@ -28,5 +28,7 @@ void setup_buttons();
 void update_level();
 void exam_handler();
 
+void update_level_rtos(int8_t *ni, uint16_t *tempo);
+
 
 #endif
