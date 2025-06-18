@@ -80,7 +80,7 @@ void oled_print_info(){
 			oled_print_media(soma);
 			oled_render();
 
-			sign_change = true;;
+			sign_change = true;
 			npDrawAmpulheta(LOW_BRIGHT, LOW_BRIGHT, 0);
 
 			sleep_ms(100);
@@ -191,4 +191,29 @@ void exam_handler(){
     if (novo_tempo && exam_started){
         oled_print_info();
     }
+}
+
+void update_level_rtos(int8_t *ni, uint16_t *tempo){
+	switch (*ni){
+		case 1:
+			*ni = 2;
+			*tempo = 1200; // agora é nível 2
+			break;
+		case 2:
+			*ni = 3;
+			*tempo = 800;
+			break;
+		case 3:
+			*ni = 4;
+			*tempo = 400;
+			break;
+		case 4:
+			*ni = 1;
+			*tempo = 2000;
+			break;
+		default:
+			*ni = 1;
+			*tempo = 2000;
+			break;
+	}
 }
