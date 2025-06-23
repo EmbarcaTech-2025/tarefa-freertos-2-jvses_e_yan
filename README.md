@@ -94,7 +94,7 @@ Aqui estão algumas capturas do projeto em funcionamento:
 
 Aqui está o vídeo do funcionamento
 
-[Vídeo](https://youtube.com/shorts/gPiC9UXQgAo?si=cSjtpc208SyGL7C5)
+[Vídeo](https://youtube.com/shorts/BJ_lxgZotvg?feature=share)
 
 ## Arquivos
 
