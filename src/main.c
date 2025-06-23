@@ -29,6 +29,7 @@ typedef struct{
 	uint8_t start_addry;
 	int8_t contador_turnos;
 	float tempo_turnos[5];
+	float tempo_medio;
 } OledData_t;
 
 typedef struct {
@@ -111,15 +112,23 @@ void task_proc_game(void *params){
 					msg.adrx = 5;
 					msg.start_addry = 8;
 					msg.contador_turnos = 5;
-					for (int i = 0; i < 5; i++) msg.tempo_turnos[i] = tempo_turnos[i];
+				
+					float soma = 0;
+					for (int i = 0; i < 5; i++) {
+						msg.tempo_turnos[i] = tempo_turnos[i];
+						soma += tempo_turnos[i];
+					}
+					msg.tempo_medio = soma / 5.0f;
+				
 					xQueueSend(xQueue_oled, &msg, 0);
+				
 					contador_turnos = 0;
 					sign_change = true;
 					sendPIO.y_hg = true;
 					xQueueSend(xQueue_led_matrix, &sendPIO, 0);
 					vTaskDelay(pdMS_TO_TICKS(100));
 					recValueA = false;
-				}
+					}							
 				novo_tempo = false;
 			}
 		} else {
@@ -179,7 +188,12 @@ void task_oled(void *params){
 		if (xQueueReceive(xQueue_oled, &oled_data, pdMS_TO_TICKS(10)) == pdTRUE) {
 			oled_clear();
 			if (oled_data.contador_turnos > 0) {
-				oled_times_print(oled_data.nivel, oled_data.contador_turnos, oled_data.tempo_turnos, oled_data.start_addry);
+				if (oled_data.contador_turnos > 0) {
+					oled_times_print(oled_data.nivel, oled_data.contador_turnos, oled_data.tempo_turnos, oled_data.start_addry);
+					oled_print_media(oled_data.tempo_medio); // <- exibe TM
+				} else {
+					oled_msg_print_nivel(oled_data.nivel);
+				}
 			} else {
 				oled_msg_print_nivel(oled_data.nivel);
 			}
