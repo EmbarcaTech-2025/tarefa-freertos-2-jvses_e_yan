@@ -20,6 +20,14 @@ pessoa que queira realizar o processor de tirar a carteira nacional de habilita�
 
 Criar um sistema utilizando FreeRTOS, escolhendo ao menos um periférico disponível na placa.
 
+No nosso projeto separamos uma tarefa para cada periférico que escolhemos:
+
+- Uma Tarefa para administrar o acionamento dos botões
+- Uma tarefa para ler o joystick
+- Uma tarefa para exibir as informações no OLED
+- Uma tarefa para exibir a direção da seta e a ampulheta na matriz de LED
+- Uma tarefa que processa todo o exame, ou seja, lê os dados captados pelo joystick e dependendo dos dados define o que exibir no OLED e na matriz de LED
+
 
 ## Lista de Materiais
 
